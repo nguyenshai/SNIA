@@ -10,6 +10,7 @@ SNIA is a comprehensive Python library for implementing, analyzing, and comparin
 - Compare performance of different algorithms on various optimization problems
 - Enable learning and research of optimization techniques
 - Offer visualization tools for analyzing and interpreting results
+- Depend on common scientific libraries (NumPy, Matplotlib) listed in `requirements.txt`
 
 ---
 
@@ -18,46 +19,56 @@ SNIA is a comprehensive Python library for implementing, analyzing, and comparin
 ```
 SNIA/
 ├── algorithms/              # Optimization algorithms
-│   ├── biology/            # Nature-inspired biology algorithms
-│   │   ├── ABC.py          # Artificial Bee Colony
-│   │   ├── ACO.py          # Ant Colony Optimization
-│   │   ├── CS.py           # Cuckoo Search
-│   │   ├── FA.py           # Firefly Algorithm
-│   │   └── PSO.py          # Particle Swarm Optimization
+│   ├── biology/             # Nature‑inspired biology algorithms
+│   │   ├── ABC.py           # Artificial Bee Colony
+│   │   ├── ACO.py           # Ant Colony Optimization
+│   │   ├── CS.py            # Cuckoo Search
+│   │   ├── FA.py            # Firefly Algorithm
+│   │   └── PSO.py           # Particle Swarm Optimization
 │   ├── classical/          # Classical graph search algorithms
-│   │   ├── A_star.py       # A* Search
-│   │   ├── BFS.py          # Breadth-First Search
-│   │   ├── DFS.py          # Depth-First Search
+│   │   ├── A_star.py        # A* Search
+│   │   ├── BFS.py           # Breadth‑First Search
+│   │   ├── DFS.py           # Depth‑First Search
 │   │   └── Hill_climbing.py # Hill Climbing
 │   ├── evolution/          # Evolutionary algorithms
-│   │   ├── DE.py           # Differential Evolution
-│   │   └── GA.py           # Genetic Algorithm
-│   ├── human/              # Human-inspired algorithms
-│   │   └── TLBO.py         # Teaching-Learning Based Optimization
-│   ├── physics/            # Physics-inspired algorithms
-│   │   └── SA.py           # Simulated Annealing
+│   │   ├── DE.py            # Differential Evolution
+│   │   └── GA.py            # Genetic Algorithm
+│   ├── human/              # Human‑inspired algorithms
+│   │   └── TLBO.py          # Teaching‑Learning Based Optimization
+│   ├── physics/            # Physics‑inspired algorithms
+│   │   └── SA.py            # Simulated Annealing
+│   ├── base.py             # Father class
 │   └── __init__.py
 │
 ├── problems/               # Optimization problems
-│   ├── continous/          # Continuous optimization problems
-│   │   ├── Ackley.py       # Ackley Function
-│   │   ├── Rastrigin.py    # Rastrigin Function
-│   │   └── Sphere.py       # Sphere Function
+│   ├── base.py
+│   ├── continous/          # Continuous optimization problems (note the spelling)
+│   │   ├── Ackley.py        # Ackley Function
+│   │   ├── Griewank.py      # Griewank Function
+│   │   ├── Rastrigin.py     # Rastrigin Function
+│   │   ├── Rosenbrock.py    # Rosenbrock Function
+│   │   ├── Sphere.py        # Sphere Function
+│   │   └── __init__.py
 │   └── discrete/           # Discrete optimization problems
 │       ├── GraphColoring.py # Graph Coloring Problem
-│       ├── Knapsack.py     # Knapsack Problem
-│       ├── ShortestPath.py # Shortest Path Problem
-│       └── TSP.py          # Traveling Salesman Problem
+│       ├── Knapsack.py      # Knapsack Problem
+│       ├── ShortestPath.py  # Shortest Path Problem
+│       ├── TSP.py           # Traveling Salesman Problem
+│       └── __init__.py
 │
-├── utils/                  # Utility modules
-│   └── visualization.py    # Result visualization tools
+├── visualization/          # Visualization utilities
+│   ├── animator.py            # Code to create GIF/Video (Contour, Particles)
+│   ├── graph_viz.py           # Graph drawing (Nodes, Edges, Path)
+│   ├── plotter.py             # Statistical plots (Convergence, Boxplot)
+│   └── __init__.py
 │
-├── main.py                 # Main entry point
+├── main.py                 # Entry point for command‑line use
+├── runner.py               # High‑level experiment runner
+├── requirements.txt        # Python dependencies
 ├── README.md               # This documentation
 └── LICENSE                 # Project license
 
 ```
-
 ---
 
 ## 🔧 Implemented Algorithms
@@ -90,14 +101,18 @@ SNIA/
 ## 📊 Optimization Problems
 
 ### Continuous Optimization
-- **Ackley**: Ackley function - common benchmark for optimization
-- **Rastrigin**: Rastrigin function - challenging multimodal problem
-- **Sphere**: Sphere function - basic optimization benchmark
+- **Ackley**: Common high‑dimensional multimodal benchmark
+- **Rastrigin**: Challenging multimodal landscape with many local minima
+- **Sphere**: Simple convex quadratic benchmark
+- **Griewank**: Function with many widespread local minima
+- **Rosenbrock**: Valley‑shaped non‑convex problem used for testing convergence
 
 ### Discrete Optimization
-- **TSP (Traveling Salesman Problem)**: Find shortest route visiting all cities
-- **Knapsack**: Maximize value with weight constraints
-- **GraphColoring**: Color graph with minimum colors
-- **ShortestPath**: Find shortest path between graph nodes
+These problems include additional real‑world constraints and rich evaluation routines.
 
-**Last Updated**: 2026-02-04
+- **TSP ("Storm Chaser Delivery Network")** – multi‑constrained traveling salesman on a 2D map with time windows, terrain cost multipliers (mountain/highway), storm‑zone penalties, and fuel limits; evaluation returns cost, time/fuel violations, and feasibility.
+- **Knapsack ("Space Cargo Loading")** – 0/1 knapsack with three resource dimensions (weight, volume, power), item synergies and conflicts, fragility penalties reducing effective volume, and minimum critical‑item requirements.
+- **GraphColoring ("Festival Scheduling")** – weighted graph coloring where edges represent event conflicts (hard/soft), forbidden adjacent slots, pre‑assigned nodes, and node popularity weights; penalty‑based evaluation and rich visualization.
+- **ShortestPath ("Mars Rover Navigation")** – grid‑based pathfinding over an elevation/terrain map with sand/rock/smooth/lava, energy cost from elevation changes, hazard zones with risk penalties, mandatory waypoints that make the problem NP‑hard.
+
+**Last Updated**: 2026-02-24
