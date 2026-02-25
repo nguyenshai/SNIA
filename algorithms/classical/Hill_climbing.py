@@ -1,38 +1,65 @@
 import numpy as np
+from ..base import Optimizer
 
-def optimize(func, bounds, iters=1000, restarts=5, step_scale=0.1, dim=None):
-	"""Random-restart hill climbing for continuous problems."""
-	rng = np.random.default_rng()
-	b = np.asarray(bounds)
-	if b.ndim == 1 and b.shape[0] == 2:
-		if dim is None:
-			raise ValueError('When bounds is (low, high) pair, please pass dim=<int>')
-		lb = np.full(dim, float(b[0]))
-		ub = np.full(dim, float(b[1]))
-	elif b.ndim == 2 and b.shape[1] == 2:
-		lb = b[:, 0].astype(float)
-		ub = b[:, 1].astype(float)
-		if dim is not None and len(lb) != dim:
-			raise ValueError('Provided dim does not match bounds shape')
-		dim = lb.shape[0]
-	else:
-		raise ValueError('bounds must be (low,high) or array of shape (dim,2)')
+class HillClimbing(Optimizer):
+    """
+    Random-restart Hill Climbing implementation.
+    """
 
-	best_x = None
-	best_f = float('inf')
+    def solve(self, iterations=1000):
+        # Parameters
+        restarts = self.params.get('restarts', 5)
+        step_scale = self.params.get('step_scale', 0.1)
+        
+        bounds = np.asarray(self.problem.bounds)
+        dim = self.problem.dim
+        rng = np.random.default_rng()
 
-	for _ in range(restarts):
-		x = rng.random(dim) * (ub - lb) + lb
-		fx = func(x)
-		for _ in range(iters // restarts):
-			cand = x + rng.normal(scale=step_scale * (ub - lb))
-			cand = np.clip(cand, lb, ub)
-			fc = func(cand)
-			if fc < fx:
-				x = cand
-				fx = fc
-		if fx < best_f:
-			best_f = float(fx)
-			best_x = x.copy()
+        if bounds.ndim == 1 and bounds.shape[0] == 2:
+            lb = np.full(dim, float(bounds[0]))
+            ub = np.full(dim, float(bounds[1]))
+        else:
+            lb = bounds[:, 0].astype(float)
+            ub = bounds[:, 1].astype(float)
 
-	return best_x, best_f
+        self.best_solution = None
+        self.best_fitness = float('inf')
+
+        iters_per_restart = iterations // restarts
+
+        for r in range(restarts):
+            # Random initialization
+            current_x = rng.random(dim) * (ub - lb) + lb
+            current_f = self.problem.evaluate(current_x)
+            
+            if current_f < self.best_fitness:
+                self.best_fitness = float(current_f)
+                self.best_solution = current_x.copy()
+
+            for _ in range(iters_per_restart):
+                # Create candidate neighbor
+                candidate = current_x + rng.normal(scale=step_scale * (ub - lb))
+                candidate = np.clip(candidate, lb, ub)
+                
+                cand_f = self.problem.evaluate(candidate)
+                
+                # Greedy acceptance
+                if cand_f < current_f:
+                    current_x = candidate
+                    current_f = cand_f
+                
+                # Update Global Best
+                if current_f < self.best_fitness:
+                    self.best_fitness = float(current_f)
+                    self.best_solution = current_x.copy()
+
+                # --- VISUALIZATION HOOK ---
+                # Save current climber position
+                self.save_history(
+                    population=np.array([current_x]), 
+                    fitness=np.array([current_f]), 
+                    global_best_sol=self.best_solution, 
+                    global_best_fit=self.best_fitness
+                )
+
+        return self.best_solution, self.best_fitness

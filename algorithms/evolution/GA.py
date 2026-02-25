@@ -1,54 +1,85 @@
 import numpy as np
+from ..base import Optimizer
 
-def optimize(func, bounds, pop_size=60, iters=200, cx_rate=0.7, mut_rate=0.1, dim=None):
-	rng = np.random.default_rng()
-	b = np.asarray(bounds)
-	if b.ndim == 1 and b.shape[0] == 2:
-		if dim is None:
-			raise ValueError('When bounds is (low, high) pair, please pass dim=<int>')
-		lb = np.full(dim, float(b[0]))
-		ub = np.full(dim, float(b[1]))
-	elif b.ndim == 2 and b.shape[1] == 2:
-		lb = b[:, 0].astype(float)
-		ub = b[:, 1].astype(float)
-		if dim is not None and len(lb) != dim:
-			raise ValueError('Provided dim does not match bounds shape')
-		dim = lb.shape[0]
-	else:
-		raise ValueError('bounds must be (low,high) or array of shape (dim,2)')
+class GeneticAlgorithm(Optimizer):
+    """
+    Genetic Algorithm (GA) implementation inheriting from Optimizer.
+    """
 
-	pop = rng.random((pop_size, dim)) * (ub - lb) + lb
-	fitness = np.array([func(ind) for ind in pop])
+    def solve(self, iterations=200):
+        # Parameters
+        pop_size = self.params.get('pop_size', 60)
+        cx_rate = self.params.get('cx_rate', 0.7)
+        mut_rate = self.params.get('mut_rate', 0.1)
+        
+        bounds = np.asarray(self.problem.bounds)
+        dim = self.problem.dim
+        rng = np.random.default_rng()
 
-	def tournament_select(k=3):
-		idx = rng.integers(pop_size, size=k)
-		return idx[np.argmin(fitness[idx])]
+        # Bounds handling
+        if bounds.ndim == 1 and bounds.shape[0] == 2:
+            lb = np.full(dim, float(bounds[0]))
+            ub = np.full(dim, float(bounds[1]))
+        else:
+            lb = bounds[:, 0].astype(float)
+            ub = bounds[:, 1].astype(float)
 
-	for _ in range(iters):
-		newpop = []
-		for _ in range(pop_size // 2):
-			a = tournament_select()
-			b = tournament_select()
-			pa = pop[a].copy()
-			pb = pop[b].copy()
-			if rng.random() < cx_rate:
-				# blend crossover
-				alpha = rng.random(dim)
-				child1 = alpha * pa + (1 - alpha) * pb
-				child2 = alpha * pb + (1 - alpha) * pa
-			else:
-				child1 = pa.copy()
-				child2 = pb.copy()
-			# mutation
-			for child in (child1, child2):
-				if rng.random() < mut_rate:
-					i = rng.integers(dim)
-					child[i] += rng.normal(scale=0.1 * (ub[i] - lb[i]))
-				child[:] = np.clip(child, lb, ub)
-				newpop.append(child)
-		pop = np.array(newpop)[:pop_size]
-		fitness = np.array([func(ind) for ind in pop])
+        # Initialize Population
+        pop = rng.random((pop_size, dim)) * (ub - lb) + lb
+        fitness = np.array([self.problem.evaluate(ind) for ind in pop])
+        
+        best_idx = np.argmin(fitness)
+        self.best_solution = pop[best_idx].copy()
+        self.best_fitness = float(fitness[best_idx])
 
-	best_idx = np.argmin(fitness)
-	return pop[best_idx].copy(), float(fitness[best_idx])
+        def tournament_select(k=3):
+            idx = rng.integers(pop_size, size=k)
+            best_in_tourn = idx[np.argmin(fitness[idx])]
+            return best_in_tourn
 
+        for _ in range(iterations):
+            newpop = []
+            # Elitism: optional, but often good to keep the best
+            # newpop.append(self.best_solution.copy()) 
+            
+            # Generate new population
+            while len(newpop) < pop_size:
+                # Selection
+                a_idx = tournament_select()
+                b_idx = tournament_select()
+                pa = pop[a_idx].copy()
+                pb = pop[b_idx].copy()
+                
+                # Crossover
+                if rng.random() < cx_rate:
+                    alpha = rng.random(dim)
+                    child1 = alpha * pa + (1 - alpha) * pb
+                    child2 = alpha * pb + (1 - alpha) * pa
+                else:
+                    child1 = pa.copy()
+                    child2 = pb.copy()
+                
+                # Mutation and Add
+                for child in (child1, child2):
+                    if len(newpop) >= pop_size: break
+                    
+                    if rng.random() < mut_rate:
+                        i = rng.integers(dim)
+                        child[i] += rng.normal(scale=0.1 * (ub[i] - lb[i]))
+                    
+                    child[:] = np.clip(child, lb, ub)
+                    newpop.append(child)
+            
+            pop = np.array(newpop)
+            fitness = np.array([self.problem.evaluate(ind) for ind in pop])
+
+            # Update Global Best
+            current_best_idx = np.argmin(fitness)
+            if fitness[current_best_idx] < self.best_fitness:
+                self.best_fitness = float(fitness[current_best_idx])
+                self.best_solution = pop[current_best_idx].copy()
+
+            # --- VISUALIZATION HOOK ---
+            self.save_history(pop, fitness, self.best_solution, self.best_fitness)
+
+        return self.best_solution, self.best_fitness

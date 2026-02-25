@@ -1,38 +1,66 @@
 import numpy as np
+from ..base import Optimizer
 
-def optimize(func, bounds, iters=1000, T0=1.0, alpha=0.99, dim=None):
-	rng = np.random.default_rng()
-	b = np.asarray(bounds)
-	if b.ndim == 1 and b.shape[0] == 2:
-		if dim is None:
-			raise ValueError('When bounds is (low, high) pair, please pass dim=<int>')
-		lb = np.full(dim, float(b[0]))
-		ub = np.full(dim, float(b[1]))
-	elif b.ndim == 2 and b.shape[1] == 2:
-		lb = b[:, 0].astype(float)
-		ub = b[:, 1].astype(float)
-		if dim is not None and len(lb) != dim:
-			raise ValueError('Provided dim does not match bounds shape')
-		dim = lb.shape[0]
-	else:
-		raise ValueError('bounds must be (low,high) or array of shape (dim,2)')
+class SimulatedAnnealing(Optimizer):
+    """
+    Simulated Annealing (SA) implementation.
+    Single-solution algorithm.
+    """
 
-	x = rng.random(dim) * (ub - lb) + lb
-	fx = func(x)
-	best_x = x.copy()
-	best_f = float(fx)
-	T = T0
+    def solve(self, iterations=1000):
+        # Parameters
+        T0 = self.params.get('T0', 1.0)
+        alpha = self.params.get('alpha', 0.99)
+        
+        bounds = np.asarray(self.problem.bounds)
+        dim = self.problem.dim
+        rng = np.random.default_rng()
 
-	for _ in range(iters):
-		cand = x + rng.normal(scale=0.1 * (ub - lb))
-		cand = np.clip(cand, lb, ub)
-		fc = func(cand)
-		if fc < fx or rng.random() < np.exp((fx - fc) / max(T, 1e-12)):
-			x = cand
-			fx = fc
-			if fc < best_f:
-				best_f = float(fc)
-				best_x = cand.copy()
-		T *= alpha
+        if bounds.ndim == 1 and bounds.shape[0] == 2:
+            lb = np.full(dim, float(bounds[0]))
+            ub = np.full(dim, float(bounds[1]))
+        else:
+            lb = bounds[:, 0].astype(float)
+            ub = bounds[:, 1].astype(float)
 
-	return best_x, best_f
+        # Initialize single solution
+        current_sol = rng.random(dim) * (ub - lb) + lb
+        current_fit = self.problem.evaluate(current_sol)
+        
+        self.best_solution = current_sol.copy()
+        self.best_fitness = float(current_fit)
+        
+        T = T0
+
+        for _ in range(iterations):
+            # Generate neighbor
+            candidate = current_sol + rng.normal(scale=0.1 * (ub - lb))
+            candidate = np.clip(candidate, lb, ub)
+            
+            cand_fit = self.problem.evaluate(candidate)
+            
+            # Acceptance probability
+            # If better, accept. If worse, accept with prob exp(-delta/T)
+            delta = cand_fit - current_fit
+            if cand_fit < current_fit or rng.random() < np.exp(-delta / max(T, 1e-12)):
+                current_sol = candidate
+                current_fit = cand_fit
+                
+                # Update global best
+                if current_fit < self.best_fitness:
+                    self.best_fitness = float(current_fit)
+                    self.best_solution = current_sol.copy()
+            
+            # Cool down
+            T *= alpha
+
+            # --- VISUALIZATION HOOK ---
+            # Wrap single solution in list/array to mimic population
+            self.save_history(
+                population=np.array([current_sol]), 
+                fitness=np.array([current_fit]), 
+                global_best_sol=self.best_solution, 
+                global_best_fit=self.best_fitness
+            )
+
+        return self.best_solution, self.best_fitness

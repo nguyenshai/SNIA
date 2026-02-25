@@ -1,64 +1,86 @@
 import numpy as np
+from ..base import Optimizer
 
-def optimize(func, bounds, pop_size=50, iters=200, dim=None):
-	rng = np.random.default_rng()
-	b = np.asarray(bounds)
-	if b.ndim == 1 and b.shape[0] == 2:
-		if dim is None:
-			raise ValueError('When bounds is (low, high) pair, please pass dim=<int>')
-		lb = np.full(dim, float(b[0]))
-		ub = np.full(dim, float(b[1]))
-	elif b.ndim == 2 and b.shape[1] == 2:
-		lb = b[:, 0].astype(float)
-		ub = b[:, 1].astype(float)
-		if dim is not None and len(lb) != dim:
-			raise ValueError('Provided dim does not match bounds shape')
-		dim = lb.shape[0]
-	else:
-		raise ValueError('bounds must be (low,high) or array of shape (dim,2)')
+class TLBO(Optimizer):
+    """
+    Teaching-Learning Based Optimization (TLBO).
+    """
 
-	pop = rng.random((pop_size, dim)) * (ub - lb) + lb
-	fitness = np.array([func(x) for x in pop])
-	best_idx = np.argmin(fitness)
-	best = pop[best_idx].copy()
-	best_f = float(fitness[best_idx])
+    def solve(self, iterations=200):
+        pop_size = self.params.get('pop_size', 50)
+        
+        bounds = np.asarray(self.problem.bounds)
+        dim = self.problem.dim
+        rng = np.random.default_rng()
 
-	for _ in range(iters):
-		# Teacher phase
-		mean = pop.mean(axis=0)
-		teacher = pop[np.argmin(fitness)]
-		T = rng.integers(1, 3)
-		newpop = pop.copy()
-		for i in range(pop_size):
-			new = pop[i] + rng.random(dim) * (teacher - T * mean)
-			new = np.clip(new, lb, ub)
-			fnew = func(new)
-			if fnew < fitness[i]:
-				newpop[i] = new
-				fitness[i] = fnew
-				if fnew < best_f:
-					best_f = float(fnew)
-					best = new.copy()
-		pop = newpop
+        if bounds.ndim == 1 and bounds.shape[0] == 2:
+            lb = np.full(dim, float(bounds[0]))
+            ub = np.full(dim, float(bounds[1]))
+        else:
+            lb = bounds[:, 0].astype(float)
+            ub = bounds[:, 1].astype(float)
 
-		# Learner phase
-		for i in range(pop_size):
-			j = rng.integers(pop_size)
-			while j == i:
-				j = rng.integers(pop_size)
-			if fitness[i] < fitness[j]:
-				step = pop[i] - pop[j]
-			else:
-				step = pop[j] - pop[i]
-			new = pop[i] + rng.random(dim) * step
-			new = np.clip(new, lb, ub)
-			fnew = func(new)
-			if fnew < fitness[i]:
-				pop[i] = new
-				fitness[i] = fnew
-				if fnew < best_f:
-					best_f = float(fnew)
-					best = new.copy()
+        # Initialize
+        pop = rng.random((pop_size, dim)) * (ub - lb) + lb
+        fitness = np.array([self.problem.evaluate(x) for x in pop])
+        
+        best_idx = np.argmin(fitness)
+        self.best_solution = pop[best_idx].copy()
+        self.best_fitness = float(fitness[best_idx])
 
-	return best, best_f
+        for _ in range(iterations):
+            # --- Teacher Phase ---
+            # Calculate mean of the class
+            mean_pop = pop.mean(axis=0)
+            
+            # Identify the teacher (best solution)
+            teacher_idx = np.argmin(fitness)
+            teacher = pop[teacher_idx]
+            
+            # Teaching factor (1 or 2)
+            tf = rng.integers(1, 3)
+            
+            # Create new population candidates
+            new_pop = pop.copy()
+            for i in range(pop_size):
+                # Move learner towards teacher
+                new_sol = pop[i] + rng.random(dim) * (teacher - tf * mean_pop)
+                new_sol = np.clip(new_sol, lb, ub)
+                
+                fnew = self.problem.evaluate(new_sol)
+                if fnew < fitness[i]:
+                    new_pop[i] = new_sol
+                    fitness[i] = fnew
+                    if fnew < self.best_fitness:
+                        self.best_fitness = float(fnew)
+                        self.best_solution = new_sol.copy()
+            
+            pop = new_pop
 
+            # --- Learner Phase ---
+            for i in range(pop_size):
+                # Select a random partner to learn from
+                j = rng.integers(pop_size)
+                while j == i:
+                    j = rng.integers(pop_size)
+                
+                if fitness[i] < fitness[j]:
+                    step = pop[i] - pop[j]
+                else:
+                    step = pop[j] - pop[i]
+                
+                new_sol = pop[i] + rng.random(dim) * step
+                new_sol = np.clip(new_sol, lb, ub)
+                
+                fnew = self.problem.evaluate(new_sol)
+                if fnew < fitness[i]:
+                    pop[i] = new_sol
+                    fitness[i] = fnew
+                    if fnew < self.best_fitness:
+                        self.best_fitness = float(fnew)
+                        self.best_solution = new_sol.copy()
+
+            # --- VISUALIZATION HOOK ---
+            self.save_history(pop, fitness, self.best_solution, self.best_fitness)
+
+        return self.best_solution, self.best_fitness

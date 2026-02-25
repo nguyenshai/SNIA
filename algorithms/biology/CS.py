@@ -1,61 +1,81 @@
 import numpy as np
+from ..base import Optimizer
 
+class CuckooSearch(Optimizer):
+    """
+    Cuckoo Search (CS) implementation.
+    """
 
-def _levy(dim, rng):
-	# simple levy-like step using Cauchy
-	return rng.standard_cauchy(size=dim)
+    def _levy_flight(self, dim, rng):
+        """
+        Helper: Generates Levy flight steps using Cauchy distribution.
+        """
+        # Simple levy-like step using standard Cauchy
+        return rng.standard_cauchy(size=dim)
 
+    def solve(self, iterations=200):
+        # 1. Extract parameters
+        pop_size = self.params.get('n', 50)  # Population size
+        pa = self.params.get('pa', 0.25)     # Discovery rate (probability of abandoning nest)
+        
+        bounds = np.asarray(self.problem.bounds)
+        dim = self.problem.dim
+        rng = np.random.default_rng()
 
-def optimize(func, bounds, n=50, iters=200, pa=0.25, dim=None):
-	"""Cuckoo Search for continuous optimization.
+        # 2. Handle bounds
+        if bounds.ndim == 1 and bounds.shape[0] == 2:
+            lb = np.full(dim, float(bounds[0]))
+            ub = np.full(dim, float(bounds[1]))
+        else:
+            lb = bounds[:, 0].astype(float)
+            ub = bounds[:, 1].astype(float)
 
-	bounds: (dim,2)
-	"""
-	rng = np.random.default_rng()
-	b = np.asarray(bounds)
-	if b.ndim == 1 and b.shape[0] == 2:
-		if dim is None:
-			raise ValueError('When bounds is (low, high) pair, please pass dim=<int>')
-		lb = np.full(dim, float(b[0]))
-		ub = np.full(dim, float(b[1]))
-	elif b.ndim == 2 and b.shape[1] == 2:
-		lb = b[:, 0].astype(float)
-		ub = b[:, 1].astype(float)
-		if dim is not None and len(lb) != dim:
-			raise ValueError('Provided dim does not match bounds shape')
-		dim = lb.shape[0]
-	else:
-		raise ValueError('bounds must be (low,high) or array of shape (dim,2)')
+        # 3. Initialize Nests
+        nests = rng.random((pop_size, dim)) * (ub - lb) + lb
+        fitness = np.array([self.problem.evaluate(x) for x in nests])
+        
+        # Find initial best
+        best_idx = np.argmin(fitness)
+        self.best_solution = nests[best_idx].copy()
+        self.best_fitness = float(fitness[best_idx])
 
-	nests = rng.random((n, dim)) * (ub - lb) + lb
-	fitness = np.array([func(x) for x in nests])
-	best_idx = np.argmin(fitness)
-	best = nests[best_idx].copy()
-	best_f = float(fitness[best_idx])
+        # 4. Main Loop
+        for _ in range(iterations):
+            # --- Levy Flight Phase ---
+            for i in range(pop_size):
+                # Calculate step size
+                step = self._levy_flight(dim, rng) * 0.01 * (ub - lb)
+                
+                # Update position based on best solution
+                new_sol = nests[i] + step * (nests[i] - self.best_solution)
+                new_sol = np.clip(new_sol, lb, ub)
+                
+                fnew = self.problem.evaluate(new_sol)
+                
+                # Greedy selection
+                if fnew < fitness[i]:
+                    nests[i] = new_sol
+                    fitness[i] = fnew
+                    if fnew < self.best_fitness:
+                        self.best_fitness = float(fnew)
+                        self.best_solution = new_sol.copy()
 
-	for _ in range(iters):
-		# generate new solutions by levy flights
-		for i in range(n):
-			step = _levy(dim, rng) * 0.01 * (ub - lb)
-			new = nests[i] + step * (nests[i] - best)
-			new = np.clip(new, lb, ub)
-			fnew = func(new)
-			if fnew < fitness[i]:
-				nests[i] = new
-				fitness[i] = fnew
-				if fnew < best_f:
-					best_f = float(fnew)
-					best = new.copy()
+            # --- Abandonment Phase (Discovery) ---
+            # Randomly abandon worse nests with probability 'pa'
+            abandon_mask = rng.random(pop_size) < pa
+            
+            # For vectorized replacement (or loop for clarity)
+            for i in range(pop_size):
+                if abandon_mask[i]:
+                    # New random solution
+                    nests[i] = rng.random(dim) * (ub - lb) + lb
+                    fitness[i] = self.problem.evaluate(nests[i])
+                    
+                    if fitness[i] < self.best_fitness:
+                        self.best_fitness = float(fitness[i])
+                        self.best_solution = nests[i].copy()
 
-		# abandon some nests
-		K = rng.random(n) < pa
-		for i in range(n):
-			if K[i]:
-				nests[i] = rng.random(dim) * (ub - lb) + lb
-				fitness[i] = func(nests[i])
-				if fitness[i] < best_f:
-					best_f = float(fitness[i])
-					best = nests[i].copy()
+            # --- VISUALIZATION HOOK ---
+            self.save_history(nests, fitness, self.best_solution, self.best_fitness)
 
-	return best, best_f
-
+        return self.best_solution, self.best_fitness
