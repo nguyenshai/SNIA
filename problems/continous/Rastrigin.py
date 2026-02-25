@@ -1,4 +1,5 @@
 import numpy as np
+from ..base import Problem
 
 """
     Rastrigin Function.
@@ -6,22 +7,27 @@ import numpy as np
     - Global Minimum: f(x) = 0 at x = [0, 0, ..., 0]
     - Algorithm: GA vs SA
 """
-def rastrigin_function(x):
-    x = np.asarray(x)
-    dim = len(x)
-    # 10*d + sum(x^2 - 10*cos(2*pi*x))
-    return 10 * dim + np.sum(x**2 - 10 * np.cos(2 * np.pi * x))
+class Rastrigin(Problem):
+    def __init__(self, dim=10):
+        super().__init__("Rastrigin Function", bounds=[-5.12, 5.12], min_val=0.0, opt_type="min")
+        self.dim = dim
 
-def generate_rastrigin_test(dim=10):
-    # Standard domain for Rastrigin
-    lower_bound, upper_bound = -5.12, 5.12
-    # Generate random starting point within bounds
-    start_node = np.random.uniform(lower_bound, upper_bound, dim)
+    def evaluate(self, x):
+        x = np.asarray(x)
+        if x.ndim == 1:
+            d = x.shape[0]
+            return 10 * d + np.sum(x**2 - 10 * np.cos(2 * np.pi * x))
+        else:
+            d = x.shape[1]
+            return 10 * d + np.sum(x**2 - 10 * np.cos(2 * np.pi * x), axis=1)
 
-    return {
-        "bounds": (lower_bound, upper_bound),
-        "dim": dim,
-        "start_node": start_node,
-        "expected_value": 0.0,
-        "expected_coords": np.zeros(dim)
-    }
+    def get_plotting_data(self, points=100):
+        if self.dim != 2: return None
+        lb, ub = self.bounds
+        x = np.linspace(lb, ub, points)
+        y = np.linspace(lb, ub, points)
+        X, Y = np.meshgrid(x, y)
+        
+        # Standard Rastrigin calculation for Meshgrid
+        Z = 10 * 2 + (X**2 - 10 * np.cos(2 * np.pi * X)) + (Y**2 - 10 * np.cos(2 * np.pi * Y))
+        return X, Y, Z

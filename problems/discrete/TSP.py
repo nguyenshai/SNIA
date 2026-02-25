@@ -29,7 +29,6 @@ import random
 from dataclasses import dataclass, field
 from typing import List, Tuple, Dict, Optional
 
-
 # =============================================================================
 #  Data classes
 # =============================================================================
