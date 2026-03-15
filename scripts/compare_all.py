@@ -516,14 +516,20 @@ DISC_N_RUNS = 30
 
 def get_disc_applicable_algos(prob_type):
     """Return list of algorithm names applicable to the given problem type."""
-    wrapped = ['PSO', 'GA', 'DE', 'ABC', 'CS', 'FA', 'TLBO', 'HC', 'SA']
+    # Classical
+    classical = ['BFS', 'DFS', 'A*', 'HC', 'SA']
+    # Metaheuristics
+    meta = ['PSO', 'GA', 'DE', 'ABC', 'CS', 'FA', 'TLBO', 'ACO']
+    
+    # All algorithms should be compared on all problems if possible.
+    # For TSP, ACO is specialized but others can run via DiscreteWrapper.
     if prob_type == 'TSP':
-        return wrapped + ['ACO']
+        return classical + meta
     elif prob_type in ('Knapsack', 'GraphColoring'):
-        return wrapped
+        return classical + meta
     elif prob_type == 'ShortestPath':
-        return ['BFS', 'DFS', 'A*'] + wrapped
-    return wrapped
+        return classical + meta
+    return classical + meta
 
 
 # ── Benchmark runner ─────────────────────────────────────────────────

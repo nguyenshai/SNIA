@@ -6,21 +6,25 @@ This is a comprehensive optimization framework built in Python that implements v
 
 The project is logically divided into self-contained modules:
 
-- **`algorithms/`**: Contains the implementations of the optimization algorithms.
-  - `biology/`: Swarm intelligence and biological algorithms (ACO, ABC, CS, PSO, FA).
-  - `evolution/`: Evolutionary algorithms (GA, DE).
-  - `physics/`: Physics-inspired algorithms (SA).
-  - `human/`: Human-inspired algorithms (TLBO).
-  - `classical/`: Traditional derivative-free search algorithms (BFS, DFS, A*, Hill Climbing).
-- **`problems/`**: Defines the optimization problems.
-  - `continuous/`: Classical continuous benchmarks (Sphere, Rastrigin, Ackley, Rosenbrock, Griewank).
-  - `discrete/`: Discrete and combinatorial benchmarks (Graph Coloring, Knapsack, Shortest Path, TSP).
-- **`visualization/`**: Advanced calculation and plotting utilities tailored for different problem types.
-  - Supports Real-time Matplotlib Animations showing the algorithm's state over time.
-  - Provides a *Scrollable Matplotlib Window* module (`scrollable.py`) to prevent aspect ratio distortion when viewing large comparison grids.
-- **`scripts/`**: Advanced analytical scripts for calculating Execution Time tracking, Robustness checking, Parameter Sensitivity, All-in-One Comprehensive Benchmarking, and GIF generation.
-- **`results/`**: The automated output directory where all generated plots, boxplots, heatmaps, and results from test scripts are saved.
-- **`main.py`**: 🔥 **The Flet GUI Dashboard** application that acts as the primary user interface. It connects algorithms to problems and integrates interactive controls through a multi-threaded architecture.
+```text
+SNIA/
+├── algorithms/                # Implementations of optimization algorithms
+│   ├── biology/               # Swarm & biological (ACO, ABC, CS, PSO, FA)
+│   ├── classical/             # Traditional search (BFS, DFS, A*, Hill Climbing)
+│   ├── evolution/             # Evolutionary (GA, DE)
+│   ├── human/                 # Human-inspired (TLBO)
+│   └── physics/               # Physics-inspired (SA)
+├── problems/                  # Optimization problem definitions
+│   ├── continuous/            # Continuous benchmarks (Sphere, Rastrigin, Ackley...)
+│   └── discrete/              # Discrete benchmarks (Graph Coloring, TSP, Knapsack...)
+├── results/                   # Auto-generated outputs (plots, heatmaps, tables, GIFs)
+├── scripts/                   # Advanced analytical and benchmarking scripts
+├── visualization/             # Advanced calculation and plotting utilities
+│   └── scrollable.py          # Scrollable Matplotlib UI context to prevent ratio distortion
+├── main.py                    # 🔥 Flet GUI Dashboard (Primary User Interface)
+├── README.md                  # Project documentation
+└── requirements.txt           # Project dependencies
+```
 
 ---
 
@@ -69,6 +73,16 @@ Visualizes the median computational time taken to resolve problems using Bar cha
 Records and compiles the entire evolutionary progression of a population (ants, birds, fireflies) converging towards the optimal space per iteration into GIF format.
 - **Run:** `python scripts/generate_problem_gifs.py`
 
+### F. Per-Problem Detailed Analysis
+Provides granular insights for each specific benchmark problem (both continuous and discrete). It evaluates the entire supported algorithm pool against a single problem and calculates Mean Best Fitness and Median Execution Time. Outcomes are presented using a dual-axis Bar/Line Chart, highlighting precision down to the millisecond in edge-cases.
+- **Run:** `python scripts/per_problem_benchmark.py`
+- *Output:* `results/visualize/per_problem/`
+
+### G. Algorithm Performance Tables
+Generates quantitative structured tables evaluating Mean Best Fitness (± Std) alongside Execution Time metrics for each specific algorithm across all compatible problems.
+- **Run:** `python scripts/compare_all_problems.py`
+- *Output:* `results/tables/per_algo/`
+
 ---
 
 ## 🛠 Dependencies & Requirements
@@ -84,9 +98,5 @@ Alternatively, install the core packages manually:
 pip install numpy matplotlib flet Pillow
 ```
 
-**⚠️ OS Specific Notice for Linux (Ubuntu/Pop_OS!):**
-To successfully render Real-time Animations, the native Python GUI toolkit `Tkinter` bindings must be installed on your operating system. (Example below for Python 3.10):
-```bash
-sudo apt update
-sudo apt install python3.10-tk
-```
+**⚠️ OS Specific Notice for Linux (Ubuntu/Linux Distro):**
+Flet for Windows is different from Linux one. Some syntax may heavily go wrong!

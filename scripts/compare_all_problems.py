@@ -19,7 +19,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-OUT_DIR = PROJECT_ROOT / 'results' / 'Scalability'
+OUT_DIR = PROJECT_ROOT / 'results' / 'tables' / 'per_algo'
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
 # ── Imports Problems ──────────────────────────────────────────────────────────
@@ -43,7 +43,9 @@ from algorithms.biology.FA          import FireflyAlgorithm
 from algorithms.biology.PSO         import ParticleSwarmOptimization
 from algorithms.biology.ACO         import AntColonyOptimization
 from algorithms.evolution.GA        import GeneticAlgorithm
+from algorithms.evolution.DE        import DifferentialEvolution
 from algorithms.physics.SA          import SimulatedAnnealing
+from algorithms.human.TLBO          import TLBO
 from algorithms.classical.Hill_climbing import HillClimbing
 from algorithms.classical.A_star    import AStar
 from algorithms.classical.BFS       import BreadthFirstSearch
@@ -71,25 +73,27 @@ DISCRETE_PROBLEMS = {
 
 # Định nghĩa thuật toán và các bài toán mà chúng có thể giải
 # Format: { AlgoName: (AlgoClass, Params, [List of Supported Problem Keys]) }
+ALL_CONTINUOUS = list(CONTINUOUS_PROBLEMS.keys())
+ALL_DISCRETE = list(DISCRETE_PROBLEMS.keys())
+ALL_PROBLEMS = ALL_CONTINUOUS + ALL_DISCRETE
+
 ALGO_CONFIG = {
-    'CS': (CuckooSearch, {'n': 40, 'pa': 0.25}, list(CONTINUOUS_PROBLEMS.keys())),
-    'ABC': (ArtificialBeeColony, {'pop_size': 40}, list(CONTINUOUS_PROBLEMS.keys())),
-    'FA': (FireflyAlgorithm, {'pop_size': 30, 'alpha': 0.5}, list(CONTINUOUS_PROBLEMS.keys())),
-    'PSO': (ParticleSwarmOptimization, {'pop_size': 40, 'w': 0.7, 'c1': 1.5, 'c2': 1.5}, list(CONTINUOUS_PROBLEMS.keys())),
-    'HC': (HillClimbing, {'restarts': 3, 'step_scale': 0.1}, list(CONTINUOUS_PROBLEMS.keys())),
+    # Metaheuristics (Giải được cả Continuous và Discrete qua mapping)
+    'CS':   (CuckooSearch,             {'n': 40, 'pa': 0.25}, ALL_PROBLEMS),
+    'ABC':  (ArtificialBeeColony,      {'pop_size': 40},      ALL_PROBLEMS),
+    'FA':   (FireflyAlgorithm,         {'pop_size': 30, 'alpha': 0.5}, ALL_PROBLEMS),
+    'PSO':  (ParticleSwarmOptimization, {'pop_size': 40, 'w': 0.7, 'c1': 1.5, 'c2': 1.5}, ALL_PROBLEMS),
+    'HC':   (HillClimbing,             {'restarts': 3, 'step_scale': 0.1}, ALL_PROBLEMS),
+    'GA':   (GeneticAlgorithm,         {'pop_size': 40, 'cx_rate': 0.8, 'mut_rate': 0.1}, ALL_PROBLEMS),
+    'DE':   (DifferentialEvolution,    {'pop_size': 40, 'F': 0.8, 'CR': 0.9}, ALL_PROBLEMS),
+    'SA':   (SimulatedAnnealing,       {'T0': 1.0, 'alpha': 0.99}, ALL_PROBLEMS),
+    'TLBO': (TLBO,                     {'pop_size': 30}, ALL_PROBLEMS),
     
-    # GA và SA linh hoạt hơn, có thể giải cả Discrete (qua mapping) và Continuous
-    'GA': (GeneticAlgorithm, {'pop_size': 40, 'cx_rate': 0.8, 'mut_rate': 0.1}, 
-           list(CONTINUOUS_PROBLEMS.keys()) + ['TSP', 'Knapsack', 'GraphColoring']),
-    
-    'SA': (SimulatedAnnealing, {'T0': 1.0, 'alpha': 0.99}, 
-           list(CONTINUOUS_PROBLEMS.keys()) + ['TSP', 'Knapsack', 'GraphColoring']),
-    
-    # Thuật toán chuyên dụng
-    'ACO': (AntColonyOptimization, {'n_ants': 20, 'alpha': 1.0, 'beta': 2.0}, ['TSP']),
-    'A_star': (AStar, {}, ['ShortestPath']),
-    'BFS': (BreadthFirstSearch, {}, ['ShortestPath']),
-    'DFS': (DepthFirstSearch, {}, ['ShortestPath']),
+    # Thuật toán chuyên dụng (Vẫn cho phép thử trên các bài toán khác nếu logic hỗ trợ)
+    'ACO':  (AntColonyOptimization,    {'n_ants': 20, 'alpha': 1.0, 'beta': 2.0}, ALL_PROBLEMS),
+    'A_star': (AStar, {}, ALL_PROBLEMS),
+    'BFS':    (BreadthFirstSearch, {}, ALL_PROBLEMS),
+    'DFS':    (DepthFirstSearch, {}, ALL_PROBLEMS),
 }
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
@@ -108,6 +112,8 @@ def apply_mapping(prob, pname):
         prob.dim, prob.bounds = len(prob.items), (0, 1)
     elif pname == 'GraphColoring':
         prob.dim, prob.bounds = prob.n_nodes, (0, prob.n_colors - 1)
+    elif pname == 'ShortestPath':
+        prob.dim, prob.bounds = prob.grid_size * 2, (0, prob.grid_size - 1)
     
     orig_eval = prob.evaluate
     def wrapped_eval(x):
@@ -115,6 +121,13 @@ def apply_mapping(prob, pname):
         if pname == 'TSP': discrete_x = list(np.argsort(x))
         elif pname == 'Knapsack': discrete_x = [1 if v > 0.5 else 0 for v in x]
         elif pname == 'GraphColoring': discrete_x = {i: int(np.clip(np.round(v), 0, prob.n_colors-1)) for i, v in enumerate(x)}
+        elif pname == 'ShortestPath':
+            half = len(x) // 2
+            path = [(int(np.clip(np.round(x[i]), 0, prob.grid_size-1)), 
+                     int(np.clip(np.round(x[i+half]), 0, prob.grid_size-1))) 
+                    for i in range(half)]
+            path = [prob.start] + path + [prob.goal]
+            discrete_x = path
         return get_fitness_value(orig_eval(discrete_x))
     prob.evaluate = wrapped_eval
 
@@ -139,17 +152,28 @@ def run_benchmark():
                     pcls = DISCRETE_PROBLEMS[pname]
                     prob = pcls.medium()
                     # Apply mapping nếu là Metaheuristic chạy Discrete
-                    if aname in ['GA', 'SA', 'HC'] and pname in ['TSP', 'Knapsack', 'GraphColoring']:
+                    if aname not in ['ACO', 'A_star', 'BFS', 'DFS'] and pname in ['TSP', 'Knapsack', 'GraphColoring', 'ShortestPath']:
                         apply_mapping(prob, pname)
                 
                 # 2. Chạy thuật toán
-                algIdx = acls(prob, params=dict(params))
-                t0 = time.perf_counter()
-                try:
-                    algIdx.solve(iterations=ITERATIONS)
-                    fits.append(float(algIdx.best_fitness or 0))
-                    times.append(time.perf_counter() - t0)
-                except Exception: pass
+                if aname in ('A_star', 'BFS', 'DFS'):
+                    # Search algorithms are deterministic on their intended problems
+                    algIdx = acls(prob, params=dict(params))
+                    t0 = time.perf_counter()
+                    try:
+                        algIdx.solve(iterations=None)
+                        fits.append(float(algIdx.best_fitness or 0))
+                        times.append(time.perf_counter() - t0)
+                    except Exception: pass
+                    break # Only one run needed
+                else:
+                    algIdx = acls(prob, params=dict(params))
+                    t0 = time.perf_counter()
+                    try:
+                        algIdx.solve(iterations=ITERATIONS)
+                        fits.append(float(algIdx.best_fitness or 0))
+                        times.append(time.perf_counter() - t0)
+                    except Exception: pass
             
             if fits:
                 results[aname][pname] = {

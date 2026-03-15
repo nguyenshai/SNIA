@@ -58,10 +58,10 @@ PROBLEMS_MAP = {
     'Ackley': (Ackley, {'dim': 10}, ['CS', 'ABC', 'FA', 'PSO', 'GA', 'SA', 'HC', 'TLBO']),
     'Rosenbrock': (Rosenbrock, {'dim': 10}, ['CS', 'ABC', 'FA', 'PSO', 'GA', 'SA', 'HC', 'TLBO']),
     'Griewank': (Griewank, {'dim': 10}, ['CS', 'ABC', 'FA', 'PSO', 'GA', 'SA', 'HC', 'TLBO']),
-    'TSP': (TSPProblem, {}, ['ACO', 'GA', 'SA', 'HC', 'TLBO']),
-    'Knapsack': (KnapsackProblem, {}, ['GA', 'SA', 'HC', 'ABC', 'TLBO']),
-    'GraphColoring': (GraphColoringProblem, {}, ['GA', 'SA', 'HC', 'TLBO']),
-    'ShortestPath': (ShortestPathProblem, {}, ['A_star', 'BFS', 'DFS']),
+    'TSP': (TSPProblem, {}, ['ACO', 'GA', 'SA', 'HC', 'TLBO', 'ABC', 'FA', 'PSO', 'CS']),
+    'Knapsack': (KnapsackProblem, {}, ['GA', 'SA', 'HC', 'ABC', 'TLBO', 'PSO', 'CS', 'FA']),
+    'GraphColoring': (GraphColoringProblem, {}, ['GA', 'SA', 'HC', 'TLBO', 'ABC', 'PSO', 'CS', 'FA']),
+    'ShortestPath': (ShortestPathProblem, {}, ['A_star', 'BFS', 'DFS', 'GA', 'SA', 'HC', 'TLBO', 'ABC', 'PSO', 'CS', 'FA']),
 }
 
 ALGO_CLASSES = {
@@ -94,6 +94,9 @@ def apply_mapping(prob, pname):
         prob.dim, prob.bounds = len(prob.items), (0, 1)
     elif pname == 'GraphColoring':
         prob.dim, prob.bounds = prob.n_nodes, (0, prob.n_colors - 1)
+    elif pname == 'ShortestPath':
+        # Simple mapping for ShortestPath if using metaheuristics
+        prob.dim, prob.bounds = prob.grid_size * 2, (0, prob.grid_size - 1)
     
     orig_eval = prob.evaluate
     def wrapped_eval(x):
@@ -101,6 +104,16 @@ def apply_mapping(prob, pname):
         if pname == 'TSP': discrete_x = list(np.argsort(x))
         elif pname == 'Knapsack': discrete_x = [1 if v > 0.5 else 0 for v in x]
         elif pname == 'GraphColoring': discrete_x = {i: int(np.clip(np.round(v), 0, prob.n_colors-1)) for i, v in enumerate(x)}
+        elif pname == 'ShortestPath':
+            # Convert continuous vector to path
+            half = len(x) // 2
+            path = [(int(np.clip(np.round(x[i]), 0, prob.grid_size-1)), 
+                     int(np.clip(np.round(x[i+half]), 0, prob.grid_size-1))) 
+                    for i in range(half)]
+            # Add start and end
+            path = [prob.start] + path + [prob.goal]
+            discrete_x = path
+
         return get_fitness_value(orig_eval(discrete_x))
     prob.evaluate = wrapped_eval
 
@@ -125,16 +138,26 @@ def run_benchmark():
                 else:
                     prob = pcls.medium()
                     # Apply mapping if Metaheuristic
-                    if aname in ['GA', 'SA', 'HC', 'ABC', 'PSO', 'CS', 'FA']:
+                    if aname in ['GA', 'SA', 'HC', 'ABC', 'PSO', 'CS', 'FA', 'TLBO']:
                         apply_mapping(prob, pname)
                 
-                alg = acls(prob, params=dict(aparams))
-                t0 = time.perf_counter()
-                try:
-                    alg.solve(iterations=ITERATIONS)
+                if aname in ('A_star', 'BFS', 'DFS'):
+                    # Solve once for classical exact search
+                    alg = acls(prob, params=dict(aparams))
+                    t0 = time.perf_counter()
+                    alg.solve(iterations=None)
                     fits.append(float(alg.best_fitness or 0))
                     times.append(time.perf_counter() - t0)
-                except Exception: pass
+                    # We only need one run for these deterministic ones
+                    break
+                else:
+                    alg = acls(prob, params=dict(aparams))
+                    t0 = time.perf_counter()
+                    try:
+                        alg.solve(iterations=ITERATIONS)
+                        fits.append(float(alg.best_fitness or 0))
+                        times.append(time.perf_counter() - t0)
+                    except Exception: pass
             
             if fits:
                 data_fitness[aname] = fits
@@ -184,6 +207,13 @@ def plot_per_problem(pname, data_fitness, data_time):
     line = ax2.plot(x, avg_times, color='red', marker='o', markersize=8, 
                     linestyle='--', linewidth=2, label='Mean Execution Time')
     
+    # Thêm dữ liệu milliseconds cho những điểm thời gian quá nhỏ (xấp xỉ 0)
+    for i, t in enumerate(avg_times):
+        if t < 0.1:  # Nếu nhỏ hơn 0.1 giây thì hiển thị ms
+            ax2.annotate(f"{t*1000:.2f} ms", (x[i], t),
+                         textcoords="offset points", xytext=(0, 10), 
+                         ha='center', color='darkred', fontsize=10, fontweight='bold')
+
     ax2.set_ylabel("Execution Time (s)", color='red', fontsize=12, fontweight='bold')
     ax2.tick_params(axis='y', labelcolor='red')
 

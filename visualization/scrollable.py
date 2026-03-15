@@ -7,12 +7,19 @@ def show_scrollable(fig, ani=None):
     root = tk.Tk()
     root.title(fig.canvas.manager.get_window_title() or "Optimization Visualization")
     
-    # Increase window size but limit to screen size roughly
+    # Focus on maximizing the window / going fullscreen for better real-time overview
     sw = root.winfo_screenwidth()
     sh = root.winfo_screenheight()
     w = min(1200, sw - 100)
     h = min(900, sh - 100)
     root.geometry(f"{w}x{h}")
+    
+    # Try to maximize the window natively on OS
+    try:
+        root.state('zoomed')
+    except tk.TclError:
+        root.attributes('-zoomed', True)
+
 
     # Set backgrounds
     bg_color = fig.patch.get_facecolor()
@@ -30,6 +37,7 @@ def show_scrollable(fig, ani=None):
     root.grid_columnconfigure(0, weight=1)
 
     scrollbar = tk.Scrollbar(root, orient="vertical", command=canvas_container.yview)
+    hscrollbar = tk.Scrollbar(root, orient="horizontal", command=canvas_container.xview)
     scrollable_frame = tk.Frame(canvas_container, bg=bg_hex)
 
     scrollable_frame.bind(
@@ -40,10 +48,11 @@ def show_scrollable(fig, ani=None):
     )
 
     canvas_container.create_window((0, 0), window=scrollable_frame, anchor="nw")
-    canvas_container.configure(yscrollcommand=scrollbar.set)
+    canvas_container.configure(yscrollcommand=scrollbar.set, xscrollcommand=hscrollbar.set)
 
     canvas_container.grid(row=0, column=0, sticky="nsew")
     scrollbar.grid(row=0, column=1, sticky="ns")
+    hscrollbar.grid(row=1, column=0, sticky="ew")
 
     def _on_mousewheel(event):
         try:
@@ -52,8 +61,16 @@ def show_scrollable(fig, ani=None):
         except Exception:
             pass
 
+    def _on_mousewheel_h(event):
+        try:
+            if event.delta:
+                canvas_container.xview_scroll(int(-1*(event.delta/120)), "units")
+        except Exception:
+            pass
+
     # Bind mouse wheel
     root.bind_all("<MouseWheel>", _on_mousewheel)
+    root.bind_all("<Shift-MouseWheel>", _on_mousewheel_h)
     def _on_linux_scroll_up(event):
         canvas_container.yview_scroll(-1, "units")
     def _on_linux_scroll_down(event):
@@ -74,7 +91,7 @@ def show_scrollable(fig, ani=None):
     # Wrap the toolbar inside the main window, out of the scrollable frame, 
     # so it stays visible!
     toolbar_frame = tk.Frame(root, bg=bg_hex)
-    toolbar_frame.grid(row=1, column=0, columnspan=2, sticky="ew")
+    toolbar_frame.grid(row=2, column=0, columnspan=2, sticky="ew")
     toolbar = NavigationToolbar2Tk(canvas_fig, toolbar_frame)
     toolbar.update()
     

@@ -875,7 +875,7 @@ def launch_app(page: ft.Page):
         options=[ft.dropdown.Option(d) for d in ['easy', 'medium', 'hard', 'extreme']],
         visible=False,
     )
-    speed = ft.TextField(label='Speed (ms)', value='50', width=100)
+    speed = ft.TextField(label='Speed (ms)', value='20', width=100)
     save_gif = ft.Switch(label='Save GIF', value=False)
 
     # Shared
@@ -905,7 +905,7 @@ def launch_app(page: ft.Page):
     # ── Preview area ─────────────────────────────────────────────────
 
     preview_image = ft.Image(
-        src='', fit=ft.BoxFit.CONTAIN, visible=False,
+        src='', fit=ft.ImageFit.CONTAIN, visible=False,
     )
 
     no_preview = ft.Container(
@@ -919,7 +919,7 @@ def launch_app(page: ft.Page):
             alignment=ft.MainAxisAlignment.CENTER,
             spacing=8,
         ),
-        alignment=ft.Alignment.CENTER,
+        alignment=ft.alignment.center,
         height=400,
     )
 
@@ -992,38 +992,29 @@ def launch_app(page: ft.Page):
     )
 
     preview_tabs = ft.Tabs(
-        length=2,
         selected_index=0,
         animation_duration=200,
         expand=True,
-        content=ft.Column(
-            [
-                ft.TabBar(
-                    tabs=[
-                        ft.Tab(label='Algorithm Visualization'),
-                        ft.Tab(label='Problem Description'),
-                    ]
-                ),
-                ft.TabBarView(
+        tabs=[
+            ft.Tab(
+                text='Algorithm Visualization',
+                content=ft.Container(
+                    content=viz_tab_content,
+                    bgcolor='#161b22',
+                    padding=10,
                     expand=True,
-                    controls=[
-                        ft.Container(
-                            content=viz_tab_content,
-                            bgcolor='#161b22',
-                            padding=10,
-                            expand=True,
-                        ),
-                        ft.Container(
-                            content=desc_container,
-                            bgcolor='#161b22',
-                            padding=10,
-                            expand=True,
-                        ),
-                    ]
                 )
-            ],
-            expand=True,
-        ),
+            ),
+            ft.Tab(
+                text='Problem Description',
+                content=ft.Container(
+                    content=desc_container,
+                    bgcolor='#161b22',
+                    padding=10,
+                    expand=True,
+                )
+            ),
+        ]
     )
 
     preview_area = ft.Container(
@@ -1543,4 +1534,4 @@ def launch_app(page: ft.Page):
 
 
 if __name__ == '__main__':
-    ft.run(main=launch_app)
+    ft.app(target=launch_app)

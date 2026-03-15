@@ -151,7 +151,7 @@ def visualize_uninformed_search(problem, algorithms: Dict[str, object],
     fig.patch.set_facecolor(BG)
     if n == 1:
         axes = [axes]
-    fig.suptitle(f'⚡ Local Search on {problem.name} — Real-time Parallel', color=TXT, fontsize=15, fontweight='bold', y=1.0 + 0.05/rows)
+    fig.suptitle(f'⚡ Local Search on {problem.name} — Real-time Parallel', color=TXT, fontsize=15, fontweight='bold', y=1.05)
 
 
     # Per-algo state
