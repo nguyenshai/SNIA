@@ -23,6 +23,7 @@ SNIA/
 │   └── scrollable.py          # Scrollable Matplotlib UI context to prevent ratio distortion
 ├── main.py                    # 🔥 Flet GUI Dashboard (Primary User Interface)
 ├── README.md                  # Project documentation
+└── report.pdf                 # Report of the project
 └── requirements.txt           # Project dependencies
 ```
 
