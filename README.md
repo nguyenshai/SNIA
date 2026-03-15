@@ -98,5 +98,5 @@ Alternatively, install the core packages manually:
 pip install numpy matplotlib flet Pillow
 ```
 
-**⚠️ OS Specific Notice for Linux (Ubuntu/Pop_OS!):**
+**⚠️ OS Specific Notice for Linux (Ubuntu/Linux Distro):**
 Flet for Windows is different from Linux one. Some syntax may heavily go wrong!
